@@ -316,6 +316,7 @@ class Cabana:
         img_path = join_path(self.mask_dir, self.name_wo_ext + '_roi.png')
         skel_analyzer.analyze_image(img_path)
 
+        # // TODO : this uses IMG RES TO CALCULATE THINGS 
         # Store metrics in stats dataframe
         self.stats.loc[0, 'Area of Fibre Spines (µm²)'] = skel_analyzer.proj_area * self.ims_res ** 2
         self.stats.loc[0, 'Lacunarity'] = skel_analyzer.lacunarity

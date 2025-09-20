@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import imageio.v3 as iio
 from skimage import exposure
-from .utils import join_path
+from utils import join_path
 
 
 class HDM:
@@ -137,7 +137,7 @@ class HDM:
             Enhanced image as an 8-bit grayscale array.
         """
         # Load image using imageio
-        raw_image = np.asarray(iio.imread(image_path))
+        raw_image = np.asarray(iio.imread(image_path)) if isinstance(image_path, str) else image_path
 
         # Normalize to 8-bit if needed
         image = raw_image if raw_image.dtype == np.uint8 else cv2.normalize(raw_image, None, 0, 255, cv2.NORM_MINMAX)
@@ -159,3 +159,39 @@ class HDM:
             enhanced_image = 255 - enhanced_image
 
         return enhanced_image.astype(np.uint8)
+    
+    def quantify_black_space_single_image(self, image, save_dir=None,):
+        """
+        Quantify the dark (hematoxylin-stained) regions in histological images.
+
+        This method processes one or multiple images, enhances their contrast,
+        calculates the percentage of dark regions, and saves the results.
+
+        Parameters
+        ----------
+        image_path : ndarray
+            single image array
+        save_dir : str
+            Directory where processed images and results will be saved.
+
+        Returns
+        -------
+        None
+            Results are saved to a CSV file and stored in the df_hdm attribute.
+        """
+        
+        enhanced_image = self.enhance_contrast(image)
+        hdm_result = np.count_nonzero(enhanced_image > 0) / np.prod(enhanced_image.shape[:2])
+
+        # Save results to CSV
+        if save_dir is not None:
+            # Save the enhanced image
+            for output_filename in img_names:
+                enhanced_image = hdm_imgs[img_names.index(output_filename)]
+                cv2.imwrite(join_path(save_dir, output_filename), enhanced_image)
+
+            result_csv = join_path(save_dir, "ResultsHDM.csv")
+            data = {'Image': img_names, '% HDM Area': hdm}
+            self.df_hdm = pd.DataFrame(data)
+            self.df_hdm.to_csv(result_csv, index=False)
+        return {'% HDM Area': hdm_result}, enhanced_image
