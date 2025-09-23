@@ -348,7 +348,7 @@ class OrientationAnalyzer:
         X = np.frombuffer(s, np.uint8).reshape((height, width, 4))
         return X[..., :3]  # Return RGB image
 
-    def draw_vector_field(self, wgts_map=None, color=(255, 255, 0), thickness=1, size=15, scale=80):
+    def draw_vector_field(self, wgts_map=None, color=(0, 0, 255), thickness=2, size=15, scale=80):
         """
         Draw a vector field visualization of the orientations.
 
@@ -414,41 +414,33 @@ class OrientationAnalyzer:
         max_val = np.max(blk_wgts)
 
         if min_val != max_val:
-            blk_wgts = normalize(blk_wgts, pmin=5, pmax=5, axis=[0, 1])
+            blk_wgts = normalize(blk_wgts, pmin=0, pmax=100, axis=[0, 1])
 
-        # Create empty image for vector field
-        vf = np.zeros((ny, nx, 3), dtype=np.uint8)
+        # Prepare image to draw on (convert to RGB if grayscale)
+        if self.image.ndim == 2 or self.image.shape[2] == 1:
+            img_draw = cv2.cvtColor(self.image, cv2.COLOR_GRAY2BGR)
+        else:
+            img_draw = self.image.copy()
 
-        # Draw vectors
+        # Draw vectors directly on the image
         for blk_yi in range(y_blk_num):
             for blk_xi in range(x_blk_num):
-                # Calculate vector radius based on weights
                 r = blk_wgts[blk_yi, blk_xi] * scale / 100.0 * size * 0.5
 
-                # Calculate vector endpoints
-                y1 = int(
-                    blk_stats[blk_yi, blk_xi, 0]
-                    - r * blk_stats[blk_yi, blk_xi, 2]
-                )
-                x1 = int(
-                    blk_stats[blk_yi, blk_xi, 1]
-                    + r * blk_stats[blk_yi, blk_xi, 3]
-                )
-                y2 = int(
-                    blk_stats[blk_yi, blk_xi, 0]
-                    + r * blk_stats[blk_yi, blk_xi, 2]
-                )
-                x2 = int(
-                    blk_stats[blk_yi, blk_xi, 1]
-                    - r * blk_stats[blk_yi, blk_xi, 3]
-                )
+                y0 = int(blk_stats[blk_yi, blk_xi, 0])
+                x0 = int(blk_stats[blk_yi, blk_xi, 1])
+                dy = blk_stats[blk_yi, blk_xi, 2]
+                dx = blk_stats[blk_yi, blk_xi, 3]
 
-                # Draw the vector line
-                vf = cv2.line(vf, (x1, y1), (x2, y2), color, thickness)
+                y1 = int(y0 - r * dy)
+                x1 = int(x0 + r * dx)
+                y2 = int(y0 + r * dy)
+                x2 = int(x0 - r * dx)
 
-        # Blend vector field with original image
-        return cv2.addWeighted(np.atleast_3d(self.image), 0.7, vf, 0.7, 20)
+                # Draw line
+                cv2.line(img_draw, (x1, y1), (x2, y2), color, thickness)
 
+        return img_draw
     def draw_color_survey(self, mask=None):
         """
         Create a colored visualization of orientations using HSV color space.
